@@ -260,16 +260,23 @@ class ProviderStanding(gl.Contract):
 		expired or revoked certificate has no bearing on the answer."""
 		stats = self._stats(Address(str(provider)))
 		best = ""
-		best_rank = -1
+		# Rank on both requirement dimensions together (not just
+		# min_settled) so that a custom tier added via add_or_update_tier
+		# with a low min_settled but a high min_avg_compliance_bps is not
+		# silently mis-ranked below an easier tier. DEFAULT_TIERS happens
+		# to have both dimensions rise together, which is what let the
+		# single-field comparison look correct before.
+		best_rank = (-1, -1)
 		i = 0
 		while i < len(self.tiers):
 			name = self.tiers[i]
 			req_settled = int(self.tier_min_settled.get(name))
 			req_bps = int(self.tier_min_avg_bps.get(name))
+			rank = (req_settled, req_bps)
 			if stats["settled_count"] >= req_settled and stats["avg_compliance_bps"] >= req_bps \
-					and req_settled >= best_rank:
+					and rank >= best_rank:
 				best = name
-				best_rank = req_settled
+				best_rank = rank
 			i += 1
 		return json.dumps({"provider": str(provider), "settled_count": stats["settled_count"],
 			"avg_compliance_bps": stats["avg_compliance_bps"], "best_tier": best})

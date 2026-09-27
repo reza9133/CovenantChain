@@ -301,7 +301,18 @@ class CovenantRegistry(gl.Contract):
 			theirs = leaders_res.calldata
 			if not _coherent_verdict(theirs):
 				return False
-			mine = leader_fn()
+			try:
+				mine = leader_fn()
+			except gl.vm.UserError:
+				# The leader succeeded, but this validator hit its own
+				# error (transient fetch/LLM hiccup, or malformed output)
+				# on an independent re-run. That is not "both sides hit
+				# the same outage" -- it is just this validator's own bad
+				# luck -- so the honest answer is disagreement, not an
+				# uncaught crash bubbling out of validator_fn.
+				return False
+			except Exception:
+				return False
 			return str(mine.get("verdict")) == str(theirs.get("verdict"))
 
 		return gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
