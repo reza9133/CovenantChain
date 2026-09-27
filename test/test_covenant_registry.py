@@ -1,8 +1,12 @@
 import sys
 import unittest
+from pathlib import Path
 
-sys.path.insert(0, "/home/claude/work/CovenantChain/test")
-sys.path.insert(0, "/home/claude/work/CovenantChain/contracts")
+TEST_DIR = Path(__file__).resolve().parent
+CONTRACTS_DIR = TEST_DIR.parent / "contracts"
+
+sys.path.insert(0, str(TEST_DIR))
+sys.path.insert(0, str(CONTRACTS_DIR))
 import genlayer_stub as gs
 
 ADDR_OWNER = gs.Address("0x1000000000000000000000000000000000000001")
@@ -16,7 +20,7 @@ class RegistryTest(unittest.TestCase):
 	def setUp(self):
 		gs.reset()
 		gs.message.sender_address = ADDR_OWNER
-		mod = gs.load_contract("/home/claude/work/CovenantChain/contracts/CovenantRegistry.py", "covenant_registry")
+		mod = gs.load_contract(str(CONTRACTS_DIR / "CovenantRegistry.py"), "covenant_registry")
 		self.mod = mod
 		self._now = NOW
 		mod._now_epoch = lambda: self._now
