@@ -257,6 +257,18 @@ class CommitmentEscrow(gl.Contract):
 		fund.settled_epoch = u64(now)
 		self.count_void = u32(int(self.count_void) + 1)
 
+	def _get_fund(self, cid: int):
+		"""Treats a Fund record whose status is still the zero-init empty
+		string as if it did not exist. Normal operation should never
+		produce one now that fund() only writes to self.funds once a
+		contribution is actually about to be accepted, but every reader
+		stays safe under this regardless -- including against state left
+		over from before that guarantee held."""
+		fund = self.funds.get(u32(cid))
+		if fund is None or str(fund.status) == "":
+			return None
+		return fund
+
 	# ------------------------------------------------------------------ #
 	# funding / settlement / payout
 	# ------------------------------------------------------------------ #
@@ -268,17 +280,24 @@ class CommitmentEscrow(gl.Contract):
 		cid = int(covenant_id)
 		now = _now_epoch()
 
-		fund = self.funds.get_or_insert_default(u32(cid))
-		fund_is_new = str(fund.status) == ""
-		if not fund_is_new and str(fund.status) != FUND_OPEN:
+		# Only ever peek here -- self.funds.get() never materializes an
+		# entry for a covenant that has none, unlike get_or_insert_default()
+		# would. Every rejection path below returns before anything is
+		# written to self.funds, so a failed funding attempt (bad amount,
+		# paused, covenant not ACTIVE, window already closed, registry
+		# unreachable, ...) never leaves a placeholder Fund behind for
+		# get_fund()/settle_fund()/claim_*() to later mistake for a real one.
+		existing = self.funds.get(u32(cid))
+		if existing is not None and str(existing.status) != FUND_OPEN:
 			return self._reject(sender, value, "the funding pool for this covenant is already "
-				+ str(fund.status))
+				+ str(existing.status))
 
 		problem = self._fund_problem(cid, value, now)
 		if problem != "":
 			return self._reject(sender, value, problem)
 
-		if fund_is_new:
+		provider_addr = ""
+		if existing is None:
 			# A fund records who its provider is exactly once, right here,
 			# rather than asking the registry again on every later call.
 			# That one-time snapshot means a future set_registry() cannot
@@ -289,6 +308,11 @@ class CommitmentEscrow(gl.Contract):
 			if not ok:
 				return self._reject(sender, value, provider_addr)
 
+		# Everything above can still walk away without touching storage.
+		# Only now that this contribution is actually going to be accepted
+		# do we materialize (or fetch) the real Fund record.
+		fund = self.funds.get_or_insert_default(u32(cid))
+		if existing is None:
 			fund.covenant_id = u32(cid)
 			fund.status = FUND_OPEN
 			fund.total_funded = u128(0)
@@ -328,7 +352,7 @@ class CommitmentEscrow(gl.Contract):
 	@gl.public.write
 	def settle_fund(self, covenant_id: int) -> str:
 		cid = int(covenant_id)
-		fund = self.funds.get(u32(cid))
+		fund = self._get_fund(cid)
 		if fund is None:
 			raise gl.vm.UserError("no funding pool exists for this covenant -- nobody has funded it yet")
 		if str(fund.status) != FUND_OPEN:
@@ -397,7 +421,7 @@ class CommitmentEscrow(gl.Contract):
 		sender = gl.message.sender_address
 		cid = int(covenant_id)
 
-		fund = self.funds.get(u32(cid))
+		fund = self._get_fund(cid)
 		if fund is None:
 			raise gl.vm.UserError("no funding pool exists for this covenant")
 		if str(fund.status) == FUND_OPEN:
@@ -427,7 +451,7 @@ class CommitmentEscrow(gl.Contract):
 		sender = gl.message.sender_address
 		cid = int(covenant_id)
 
-		fund = self.funds.get(u32(cid))
+		fund = self._get_fund(cid)
 		if fund is None:
 			raise gl.vm.UserError("no funding pool exists for this covenant")
 		if str(fund.status) == FUND_OPEN:
@@ -523,7 +547,7 @@ class CommitmentEscrow(gl.Contract):
 
 	@gl.public.view
 	def get_fund(self, covenant_id: int) -> str:
-		fund = self.funds.get(u32(int(covenant_id)))
+		fund = self._get_fund(int(covenant_id))
 		if fund is None:
 			return json.dumps({"found": False})
 		out = self._fund_json(fund)
