@@ -180,7 +180,7 @@ class CommitmentEscrow(gl.Contract):
 	funds_locked: u128
 	total_paid_providers: u128
 	total_refunded: u128
-	last_out_epoch: u64
+	last_fee_sweep_epoch: u64
 
 	count_funds: u32
 	count_backers: u32
@@ -221,7 +221,6 @@ class CommitmentEscrow(gl.Contract):
 		if amount <= 0:
 			return
 		_Wallet(Address(str(to))).emit_transfer(value=u256(int(amount)))
-		self.last_out_epoch = u64(_now_epoch())
 
 	def _reject(self, sender, value: int, reason: str) -> str:
 		if value > 0:
@@ -518,9 +517,9 @@ class CommitmentEscrow(gl.Contract):
 	def withdraw_platform_fees(self, to: str, amount: int) -> None:
 		self._require_owner()
 		now = _now_epoch()
-		if int(self.last_out_epoch) > 0 and now < int(self.last_out_epoch) + SWEEP_DELAY_SECONDS:
+		if int(self.last_fee_sweep_epoch) > 0 and now < int(self.last_fee_sweep_epoch) + SWEEP_DELAY_SECONDS:
 			raise gl.vm.UserError("please wait " + str(SWEEP_DELAY_SECONDS)
-				+ "s after the last payout before sweeping fees")
+				+ "s after the last fee sweep before sweeping again")
 
 		available = int(self.platform_fees_accrued) - int(self.platform_fees_withdrawn)
 		free_balance = int(self.balance) - int(self.funds_locked)
@@ -530,6 +529,7 @@ class CommitmentEscrow(gl.Contract):
 			raise gl.vm.UserError("amount must be 1.." + str(withdrawable) + " wei (currently withdrawable)")
 
 		self.platform_fees_withdrawn = u128(int(self.platform_fees_withdrawn) + amt)
+		self.last_fee_sweep_epoch = u64(now)
 		self._pay(Address(str(to)), amt)
 
 	# ------------------------------------------------------------------ #

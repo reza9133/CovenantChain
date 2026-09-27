@@ -271,6 +271,32 @@ class EscrowTest(unittest.TestCase):
 		with self.assertRaises(gs.UserError):
 			self.escrow.withdraw_platform_fees(str(ADDR_OWNER), 1)  # sweep delay
 
+	def test_unrelated_backer_claim_does_not_reset_fee_sweep_cooldown(self):
+		"""A backer or provider claiming their own money is not an admin fee
+		sweep, and must not reset the owner's SWEEP_DELAY_SECONDS cooldown --
+		otherwise ordinary user activity could block fee withdrawal forever."""
+		self._fund(1, ADDR_BACKER_A, 10 * GEN)
+		self.fake_registry.status = "FINALIZED"
+		self.fake_registry.compliance_bps = 5000  # 50% compliant
+		self.escrow.settle_fund(1)
+		gs.set_balance(self.escrow, 10 * GEN)
+
+		fee = (10 * GEN * 5000 // 10000 * 250) // 10000
+
+		# a long time passes with no admin activity at all
+		self._now += 30 * 86400
+
+		# an ordinary backer claims their own refund -- unrelated to fee sweeps
+		gs.message.sender_address = ADDR_BACKER_A
+		self.escrow.claim_refund(1)
+
+		# the owner should still be able to sweep immediately: nothing about
+		# *their own* sweep cooldown has elapsed differently because of it
+		self._now += 1
+		gs.message.sender_address = ADDR_OWNER
+		self.escrow.withdraw_platform_fees(str(ADDR_OWNER), fee)
+		self.assertEqual(gs.PAYMENTS[-1], (str(ADDR_OWNER), fee))
+
 
 if __name__ == "__main__":
 	unittest.main()
