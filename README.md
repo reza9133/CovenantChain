@@ -217,16 +217,15 @@ genlayer network set studionet
 
 # 1. CovenantRegistry takes no constructor arguments
 genlayer deploy --contract contracts/CovenantRegistry.py
-# -> deployed at REGISTRY=0x27800939A707d72C20603cEAc32e9d7703f0071a
+# -> note the printed address, e.g. REGISTRY=0xabc...
 
 # 2. CommitmentEscrow needs CovenantRegistry's address, plus an optional
 #    platform fee in basis points (defaults to 250 = 2.5% if omitted)
-genlayer deploy --contract contracts/CommitmentEscrow.py --args 0x27800939A707d72C20603cEAc32e9d7703f0071a 250
-# -> deployed at ESCROW=0x990b4dF9E564CEbCe5e5d670a3Bc10831f327E20
+genlayer deploy --contract contracts/CommitmentEscrow.py --args 0xabc... 250
+# -> note the printed address, e.g. ESCROW=0xdef...
 
 # 3. ProviderStanding needs CommitmentEscrow's address
-genlayer deploy --contract contracts/ProviderStanding.py --args 0x990b4dF9E564CEbCe5e5d670a3Bc10831f327E20
-# -> deployed at STANDING=0xAf3058E1B5011CBA01570eBEc2Fdb562e46031b6
+genlayer deploy --contract contracts/ProviderStanding.py --args 0xdef...
 ```
 
 ### Trying it end to end
@@ -234,30 +233,30 @@ genlayer deploy --contract contracts/ProviderStanding.py --args 0x990b4dF9E564CE
 ```bash
 # register a covenant; starts_epoch must be at least 60s in the future and
 # the window (ends_epoch - starts_epoch) must be at least 600s
-genlayer write 0x27800939A707d72C20603cEAc32e9d7703f0071a create_covenant \
+genlayer write 0xabc... create_covenant \
   --args 0xPROVIDER... "the status page reads operational" \
   "https://example.org/status" "use the official status page only" \
   1780000000 1780050000
 
 # fund it -- note the --value flag, since fund() is the one payable
 # method in this whole chain
-genlayer write 0x990b4dF9E564CEbCe5e5d670a3Bc10831f327E20 fund --args 1 --value 5gen
+genlayer write 0xdef... fund --args 1 --value 5gen
 
 # once the review window opens, anyone can attest as often as the gap
 # and cap constants allow
-genlayer write 0x27800939A707d72C20603cEAc32e9d7703f0071a attest --args 1
+genlayer write 0xabc... attest --args 1
 
 # once the window ends, anyone can finalize it...
-genlayer write 0x27800939A707d72C20603cEAc32e9d7703f0071a finalize_covenant --args 1
+genlayer write 0xabc... finalize_covenant --args 1
 # ...and then settle the fund built on top of it
-genlayer write 0x990b4dF9E564CEbCe5e5d670a3Bc10831f327E20 settle_fund --args 1
+genlayer write 0xdef... settle_fund --args 1
 
 # the provider and every backer can now pull their own share
-genlayer write 0x990b4dF9E564CEbCe5e5d670a3Bc10831f327E20 claim_provider_share --args 1
-genlayer write 0x990b4dF9E564CEbCe5e5d670a3Bc10831f327E20 claim_refund --args 1
+genlayer write 0xdef... claim_provider_share --args 1
+genlayer write 0xdef... claim_refund --args 1
 
 # check whether that settlement is enough for a rating on the third contract
-genlayer call 0xAf3058E1B5011CBA01570eBEc2Fdb562e46031b6 is_currently_eligible \
+genlayer call 0x<PROVIDER_STANDING_ADDR> is_currently_eligible \
   --args 0xPROVIDER... VERIFIED
 ```
 
