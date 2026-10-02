@@ -222,11 +222,11 @@ genlayer deploy --contract contracts/CovenantRegistry.py
 # 2. CommitmentEscrow needs CovenantRegistry's address, plus an optional
 #    platform fee in basis points (defaults to 250 = 2.5% if omitted)
 genlayer deploy --contract contracts/CommitmentEscrow.py --args 0x27800939A707d72C20603cEAc32e9d7703f0071a 250
-# -> deployed at ESCROW=0x41057FAD0C7EdD15cfFD2DE957C7B6AaCB0f450d
+# -> deployed at ESCROW=0xEE07C95C2EAe46E62B4b395004EA7701E14a13D6
 
 # 3. ProviderStanding needs CommitmentEscrow's address
-genlayer deploy --contract contracts/ProviderStanding.py --args 0x41057FAD0C7EdD15cfFD2DE957C7B6AaCB0f450d
-# -> deployed at STANDING=0xA6710096a2C919E4A72aDd5DF1B5ae7453817CE0
+genlayer deploy --contract contracts/ProviderStanding.py --args 0xEE07C95C2EAe46E62B4b395004EA7701E14a13D6
+# -> deployed at STANDING=0xe7A46E44D8ea4C45Ed2A3BC070AA1182065a7085
 ```
 
 ### Trying it end to end
@@ -241,7 +241,7 @@ genlayer write 0x27800939A707d72C20603cEAc32e9d7703f0071a create_covenant \
 
 # fund it -- note the --value flag, since fund() is the one payable
 # method in this whole chain
-genlayer write 0x41057FAD0C7EdD15cfFD2DE957C7B6AaCB0f450d fund --args 1 --value 5gen
+genlayer write 0xEE07C95C2EAe46E62B4b395004EA7701E14a13D6 fund --args 1 --value 5gen
 
 # once the review window opens, anyone can attest as often as the gap
 # and cap constants allow
@@ -250,14 +250,14 @@ genlayer write 0x27800939A707d72C20603cEAc32e9d7703f0071a attest --args 1
 # once the window ends, anyone can finalize it...
 genlayer write 0x27800939A707d72C20603cEAc32e9d7703f0071a finalize_covenant --args 1
 # ...and then settle the fund built on top of it
-genlayer write 0x41057FAD0C7EdD15cfFD2DE957C7B6AaCB0f450d settle_fund --args 1
+genlayer write 0xEE07C95C2EAe46E62B4b395004EA7701E14a13D6 settle_fund --args 1
 
 # the provider and every backer can now pull their own share
-genlayer write 0x41057FAD0C7EdD15cfFD2DE957C7B6AaCB0f450d claim_provider_share --args 1
-genlayer write 0x41057FAD0C7EdD15cfFD2DE957C7B6AaCB0f450d claim_refund --args 1
+genlayer write 0xEE07C95C2EAe46E62B4b395004EA7701E14a13D6 claim_provider_share --args 1
+genlayer write 0xEE07C95C2EAe46E62B4b395004EA7701E14a13D6 claim_refund --args 1
 
 # check whether that settlement is enough for a rating on the third contract
-genlayer call 0xA6710096a2C919E4A72aDd5DF1B5ae7453817CE0 is_currently_eligible \
+genlayer call 0xe7A46E44D8ea4C45Ed2A3BC070AA1182065a7085 is_currently_eligible \
   --args 0xPROVIDER... VERIFIED
 ```
 
